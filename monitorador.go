@@ -6,12 +6,34 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const monitoramentos = 3
 const delay = 5
+
+func main() {
+
+	for {
+		menu()
+		comando := lerComando()
+
+		switch comando {
+		case 1:
+			monitoramento()
+		case 2:
+			imprimeLogs()
+		case 0:
+			fmt.Println("Saindo do Programa...")
+			os.Exit(0)
+		default:
+			fmt.Println("Comando inválido")
+			os.Exit(255)
+		}
+	}
+}
 
 func menu() {
 	versao := 1.0
@@ -33,12 +55,11 @@ func lerComando() int {
 
 func monitoramento() {
 	fmt.Println("Monitorando...")
-
 	sites := lerAquivo()
 
 	for i := 0; i < monitoramentos; i++ {
 		for _, site := range sites {
-			fmt.Println("Testando o site:", site)
+			fmt.Println("Testando o site", site)
 			testar(site)
 		}
 		fmt.Println("")
@@ -47,75 +68,72 @@ func monitoramento() {
 		fmt.Println("")
 	}
 	fmt.Println("")
-	fmt.Println("Monitoramento finalizado!")
 
-}
-
-func logs() {
-	fmt.Println("Exibindo logs...")
 }
 
 func testar(site string) {
-	request, err := http.Get(site)
+	resp, err := http.Get(site)
 
 	if err != nil {
 		fmt.Println("Erro ao fazer requisição:", err)
 	}
 
-	if request.StatusCode == 200 {
+	if resp.StatusCode == 200 {
 		fmt.Println("Site:", site, "está no ar!")
+		logs(site, true)
 	} else {
-		fmt.Println("Site:", site, "está fora do ar!", request.StatusCode)
+		fmt.Println("Site:", site, "está fora do ar!", resp.StatusCode)
+		logs(site, false)
 	}
 }
 
 func lerAquivo() []string {
-
 	var sites []string
-
 	arquivo, err := os.Open("sites.txt")
 
 	if err != nil {
-		fmt.Println("Erro ao abrir o arquivo:", err)
-		return sites
+		fmt.Println("Ocorreu um erro:", err)
 	}
 
 	leitor := bufio.NewReader(arquivo)
-
 	for {
 		linha, err := leitor.ReadString('\n')
 		linha = strings.TrimSpace(linha)
 
-		if linha != "" {
-			sites = append(sites, linha)
-		}
+		sites = append(sites, linha)
 
 		if err == io.EOF {
 			break
 		}
+
 	}
 
 	arquivo.Close()
 	return sites
 }
 
-func main() {
+func imprimeLogs() {
 
-	for {
-		menu()
-		comando := lerComando()
+	arquivo, err := os.ReadFile("logs.txt")
 
-		switch comando {
-		case 1:
-			monitoramento()
-		case 2:
-			logs()
-		case 0:
-			fmt.Println("Saindo do Programa...")
-			os.Exit(0)
-		default:
-			fmt.Println("Comando inválido")
-			os.Exit(255)
-		}
+	if err != nil {
+		fmt.Println(err)
 	}
+
+	fmt.Println(string(arquivo))
+
+}
+
+func logs(site string, status bool) {
+	fmt.Println("Exibindo logs...")
+
+	arquivo, err := os.OpenFile("logs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	arquivo.WriteString(site + "- online:" + strconv.FormatBool(status) + " " + time.Now().Format("02/01/2006 15:04:05") + "\n")
+
+	arquivo.Close()
 }
